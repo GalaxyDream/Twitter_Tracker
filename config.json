@@ -1,0 +1,10 @@
+{
+        "apikeys": {
+                "i0mf0rmer01": {
+                        "app_key": "APP_KEY",
+                        "app_secret": "AP_SECRET",
+                        "oauth_token": "OAUTH_TOKEN",
+                        "oauth_token_secret": "OAUTH_TOKEN_SECRET"
+                }
+        }
+}
