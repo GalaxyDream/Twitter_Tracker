@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import logging.handlers
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
@@ -480,6 +481,11 @@ def collect_tweets_by_search_terms(search_configs_filename, output_folder, confi
 
 
 if __name__=="__main__":
+
+    handler = logging.handlers.RotatingFileHandler(
+        'twitter_tracker.log', maxBytes=10 * 1024 * 1024, backupCount=10)
+    logger.addHandler(handler)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', help="config.json that contains twitter api keys;", default="./config.json")
     parser.add_argument('-p', '--proxies', help="the proxies.json file", default="./proxies.json")
