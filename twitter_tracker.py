@@ -5,7 +5,7 @@ import logging
 import logging.handlers
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='(%(asctime)s) [%(process)d] %(levelname)s: %(message)s')
 requests_log = logging.getLogger("requests")
 requests_log.setLevel(logging.WARNING)
 
@@ -481,9 +481,10 @@ def collect_tweets_by_search_terms(search_configs_filename, output_folder, confi
 
 
 if __name__=="__main__":
-
+    formatter = logging.Formatter('(%(asctime)s) [%(process)d] %(levelname)s: %(message)s')
     handler = logging.handlers.RotatingFileHandler(
-        'twitter_tracker.log', maxBytes=10 * 1024 * 1024, backupCount=10)
+        'twitter_tracker.log', maxBytes=50 * 1024 * 1024, backupCount=10)
+    handler.setFormatter(formatter)
     logger.addHandler(handler)
 
     parser = argparse.ArgumentParser()
