@@ -43,7 +43,7 @@ def test_twython_proxy():
         if not passed:
            logger.warn('proxy failed, retry next one')
            continue
-        
+
         client_args = {
             "timeout": 5,
             "proxies": proxy['proxy_dict']

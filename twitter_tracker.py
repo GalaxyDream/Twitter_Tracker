@@ -514,11 +514,21 @@ if __name__=="__main__":
                     proxies = proxy_checker(json.load(proxy_f))
                     logger.info("there are [%d] live proxies"%len(proxies))
 
-            if (args.command == 'search'):
-                collect_tweets_by_search_terms(args.command_config, args.output, config, args.workers, proxies)
-            elif (args.command == 'timeline'):
-                collect_tweets_by_user_ids(args.command_config, args.output, config, args.workers, proxies)
+            retry = True
 
+            while (retry):
+                try:
+                    if (args.command == 'search'):
+                        collect_tweets_by_search_terms(args.command_config, args.output, config, args.workers, proxies)
+                    elif (args.command == 'timeline'):
+                        collect_tweets_by_user_ids(args.command_config, args.output, config, args.workers, proxies)
+                except KeyboardInterrupt:
+                    retry = False
+                    raise
+                except concurrent.futures.process.BrokenProcessPool:
+                    retry = True
+                except Exception:
+                    retry = True
 
         except KeyboardInterrupt:
             logger.error('Ok, killed myself...')
