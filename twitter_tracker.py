@@ -19,10 +19,11 @@ import functools
 import multiprocessing as mp
 import itertools
 import signal
+import re
 #sys.path.append(".")
 
 
-MAX_RETRY_CNT = 5
+MAX_RETRY_CNT = 3
 class TwitterCrawler(twython.Twython):
 
     def __init__(self, *args, **kwargs):
@@ -72,6 +73,74 @@ class TwitterCrawler(twython.Twython):
             wait_for = 60
 
         time.sleep(wait_for)
+
+    def fetch_user_relationships(self, user_id = None, resource_family='friends', call='/friends/ids', now=datetime.datetime.now()):
+        '''
+        call: /friends/ids, /friends/list, /followers/ids, and /followers/list
+        '''
+        if not user_id:
+            raise Exception("user_relationship: user_id cannot be None")
+
+        day_output_folder = os.path.abspath('%s/%s'%(self.output_folder, now.strftime('%Y%m%d')))
+
+        if not os.path.exists(day_output_folder):
+            os.makedirs(day_output_folder)
+
+        filename = os.path.abspath('%s/%s'%(day_output_folder, user_id))
+
+        with open(filename, 'w') as f:
+            pass
+
+        cursor = -1
+
+        cnt = 0
+
+        retry_cnt = MAX_RETRY_CNT
+        while cursor != 0 and retry_cnt > 0:
+            try:
+                result = None
+                if (call == '/friends/ids'):
+                    result = self.get_friends_ids(user_id=user_id, cursor=cursor,count=5000)
+
+                    cnt += len(result['ids'])
+                elif (call == '/friends/list'):
+
+                    result = self.get_friends_list(user_id=user_id, cursor=cursor,count=200)
+
+                    cnt += len(result['users'])
+                elif (call == '/followers/ids'):
+
+                    result = self.get_followers_ids(user_id=user_id, cursor=cursor,count=5000)
+
+                    cnt += len(result['ids'])
+                elif (call == '/followers/list'):
+
+                    result = self.get_followers_list(user_id=user_id, cursor=cursor,count=200)
+
+                    cnt += len(result['users'])
+                
+                if (result):
+
+                    cursor = result['next_cursor'] 
+
+                    with open(filename, 'a+') as f:
+                        f.write('%s\n'%json.dumps(result))
+
+
+                time.sleep(1)
+
+            except twython.exceptions.TwythonRateLimitError:
+                self.rate_limit_error_occured(resource_family, call)
+            except Exception as exc:
+                time.sleep(10)
+                logger.error("exception: %s; when fetching user_id: %d"%(exc, user_id))
+                retry_cnt -= 1
+                if (retry_cnt == 0):
+                    logger.warn("exceed max retry... return")
+                    return False
+
+        logger.info("[%s] total [%s]: %d; "%(user_id, call, cnt))
+        return False
 
     def fetch_user_timeline(self, user_id = None,  now=datetime.datetime.now(), since_id = 1):
 
@@ -240,6 +309,104 @@ def apikey_proxy_pairs(apikeys_list, proxies_list):
         }
 
     return apikey_proxy_pairs
+
+def fetch_user_relationships_worker(user_id, resource_family, call, now, output_folder, available, apikey_proxy_pairs_dict):
+
+    # Ignore the SIGINT signal by setting the handler to the standard
+    # signal handler SIG_IGN.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+    apikeys = copy.copy(apikey_proxy_pairs_dict[available]['apikeys'])
+    proxies = copy.copy(apikey_proxy_pairs_dict[available]['proxies'])
+
+    proxies = iter(proxies) if proxies else None
+
+    logger.info('REQUEST -> (user_id: [%d]; call: [%s])'%(user_id, call))
+
+    client_args = {"timeout": 30}
+
+    retry = True
+    remove = False
+    try:
+        while(retry):
+            if proxies:
+                proxy = next(proxies)
+                logger.info('checking [%s]'%proxy)
+                passed, proxy = check_proxy_twython(proxy['proxy'], 5)
+                if not passed:
+                    logger.warn('proxy failed, retry next one')
+                    continue
+                client_args['proxies'] = proxy['proxy_dict']
+
+            twitterCralwer = TwitterCrawler(apikeys=apikeys, client_args=client_args, output_folder = output_folder)
+            retry = twitterCralwer.fetch_user_relationships(user_id, resource_family=resource_family, call=call, now=now)
+            logger.info("retry: %s"%(retry))
+    # except StopIteration as exc:
+    #     pass
+    except Exception as exc:
+        logger.error(exc)
+        pass
+
+
+    return available
+
+def fetch_user_relationships_worker_done(future, available_apikey_proxy_pairs = []):
+
+    available = future.result()
+
+    logger.info('finished... [%s]'%available)
+    available_apikey_proxy_pairs.append(available)
+
+def collect_user_relatinoships_by_user_ids(call, user_ids_config_filename, output_folder, config, n_workers = mp.cpu_count(), proxies = []):
+
+    apikey_proxy_pairs_dict = apikey_proxy_pairs(config['apikeys'], proxies)
+
+    available_apikey_proxy_pairs = list(apikey_proxy_pairs_dict.keys())
+
+    max_workers = len(available_apikey_proxy_pairs)
+
+    #max_workers = mp.cpu_count() if max_workers > mp.cpu_count() else max_workers
+
+    user_ids = []
+    with open(os.path.abspath(user_ids_config_filename), 'r') as user_ids_config_rf:
+        user_ids = json.load(user_ids_config_rf)
+
+    user_ids = set(user_ids)
+
+    logger.info("tracking [%d] users' [%s]"%(len(user_ids), call))
+
+    max_workers = max_workers if max_workers < len(user_ids) else len(user_ids)
+    max_workers = n_workers if n_workers < max_workers else max_workers
+    logger.info("concurrent workers: [%d]"%(max_workers))
+
+    resource_family = None
+    m = re.match(r'^\/(?P<resource_family>.*?)\/', call)
+    if (m):
+        resource_family = m.group('resource_family')
+
+    futures_ = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+
+        try:
+
+            for user_id in user_ids:
+
+                while(len(available_apikey_proxy_pairs) == 0):
+                    logger.info('no available_apikey_proxy_pairs, wait for 5s to retry...')
+                    time.sleep(5)
+
+                now = datetime.datetime.now()
+                future_ = executor.submit(
+                            fetch_user_relationships_worker, user_id, resource_family, call, now, output_folder, available_apikey_proxy_pairs.pop(), apikey_proxy_pairs_dict)
+
+                future_.add_done_callback(functools.partial(fetch_user_relationships_worker_done, available_apikey_proxy_pairs=available_apikey_proxy_pairs))
+
+                futures_.append(future_)
+        except KeyboardInterrupt:
+            logger.warn('You pressed Ctrl+C! But we will wait until all sub processes are finished...')
+            concurrent.futures.wait(futures_)
+            executor.shutdown()
+            raise
 
 def fetch_user_timeline_worker(user_config, now, output_folder, available, apikey_proxy_pairs_dict):
 
@@ -523,12 +690,16 @@ if __name__=="__main__":
                         collect_tweets_by_search_terms(args.command_config, args.output, config, args.workers, proxies)
                     elif (args.command == 'timeline'):
                         collect_tweets_by_user_ids(args.command_config, args.output, config, args.workers, proxies)
+                    elif (args.command in ['/friends/ids', '/friends/list', '/followers/ids', '/followers/list']):
+                        collect_user_relatinoships_by_user_ids(args.command, args.command_config, args.output, config, args.workers, proxies)
                 except KeyboardInterrupt:
                     retry = False
                     raise
                 except concurrent.futures.process.BrokenProcessPool:
                     retry = True
-                except Exception:
+                except Exception as exc:
+                    logger.error(exc)
+                    logger.error(full_stack())
                     retry = True
 
         except KeyboardInterrupt:
