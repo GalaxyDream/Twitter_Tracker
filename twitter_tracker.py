@@ -402,6 +402,11 @@ def collect_user_relatinoships_by_user_ids(call, user_ids_config_filename, outpu
                 future_.add_done_callback(functools.partial(fetch_user_relationships_worker_done, available_apikey_proxy_pairs=available_apikey_proxy_pairs))
 
                 futures_.append(future_)
+            else:
+                concurrent.futures.wait(futures_)
+                executor.shutdown()
+                return False
+                
         except KeyboardInterrupt:
             logger.warn('You pressed Ctrl+C! But we will wait until all sub processes are finished...')
             concurrent.futures.wait(futures_)
@@ -691,7 +696,7 @@ if __name__=="__main__":
                     elif (args.command == 'timeline'):
                         collect_tweets_by_user_ids(args.command_config, args.output, config, args.workers, proxies)
                     elif (args.command in ['/friends/ids', '/friends/list', '/followers/ids', '/followers/list']):
-                        collect_user_relatinoships_by_user_ids(args.command, args.command_config, args.output, config, args.workers, proxies)
+                        retry = collect_user_relatinoships_by_user_ids(args.command, args.command_config, args.output, config, args.workers, proxies)
                 except KeyboardInterrupt:
                     retry = False
                     raise
