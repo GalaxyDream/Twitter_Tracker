@@ -54,10 +54,8 @@ class TwitterStreamer(twython.TwythonStreamer):
     def close(self):
         self.disconnect()
 
-
-def collect_public_tweets(config, output_folder):
-
-    logger.info("start collecting.....")
+def init_streamer(config, output_folder):
+    
     apikeys = list(config['apikeys'].values()).pop()
 
     # APP_KEY = '9ykLAyaYDtBDtg7pg6Uow' #apikeys['app_key']
@@ -70,13 +68,39 @@ def collect_public_tweets(config, output_folder):
     OAUTH_TOKEN = apikeys['oauth_token']
     OAUTH_TOKEN_SECRET = apikeys['oauth_token_secret']
 
-    stream = TwitterStreamer(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET, output_folder=output_folder)
-    stream.statuses.sample()
+    streamer = TwitterStreamer(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET, output_folder=output_folder)
+
+    return streamer
+
+
+def collect_public_tweets(config, output_folder):
+
+    streamer = init_streamer(config, output_folder)
+
+    logger.info("start collecting.....")
+
+    streamer.statuses.sample()
+
+def filter_by_locations(config, output_folder, locations = None):
+
+    streamer = init_streamer(config, output_folder)
+    
+    logger.info("start collecting.....")
+
+    if (locations and locations.endswith('.json')):
+        with open(os.path.abspath(locations), 'r') as locations_f:
+            locations = json.load(locations_f)
+            locations = ','.join([','.join([str(g) for g in pair]) for pair in locations['bounding_box']])
+
+    streamer.statuses.filter(locations=locations)
+
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', help="config.json that contains twitter api keys;", default="./config.json")
     parser.add_argument('-o','--output', help="output folder data", default="./data/")
+    parser.add_argument('-cmd','--command', help="command", default="sample")
+    parser.add_argument('-cc','--command_data', help="command data", default=None)
 
     args = parser.parse_args()
 
@@ -87,7 +111,10 @@ if __name__=="__main__":
         try:
             while(True):
                 try:
-                    collect_public_tweets(config, args.output)
+                    if (args.command == 'locations'):
+                        filter_by_locations(config, args.output, args.command_data)
+                    else:
+                        collect_public_tweets(config, args.output)
                 except Exception as exc:        
                     logger.error(exc)
                     #logger.error(full_stack())
