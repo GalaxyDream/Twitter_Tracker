@@ -416,7 +416,7 @@ def collect_users(parameter, users_config_filename, output_folder, config, n_wor
 
     users_config = []
     with open(os.path.abspath(users_config_filename), 'r') as users_config_rf:
-        users_config = json.load(users_config_rf)
+        users_config = list(set(json.load(users_config_rf)))
 
     chunks = [users_config[x:x+100] for x in range(0, len(users_config), 100)]
 
