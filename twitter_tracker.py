@@ -96,9 +96,9 @@ class TwitterCrawler(twython.Twython):
             try:
 
                 if (parameter == 'screen_name'):
-                    result = self.lookup_user(screen_name=",".join(parameter_values))
+                    result = self.lookup_user(screen_name=",".join(str(x) for x in parameter_values))
                 elif (parameter == 'user_id'):
-                    result = self.lookup_user(user_id=",".join(parameter_values))
+                    result = self.lookup_user(user_id=",".join(str(x) for x in parameter_values))
 
                 if (result):
 
@@ -368,7 +368,7 @@ def fetch_users_worker(parameter, chunk, output_folder, filename, available, api
 
     proxies = iter(proxies) if proxies else None
 
-    logger.info('REQUEST -> (chunk size: [%d])'%(len(chuck)))
+    logger.info('REQUEST -> (chunk size: [%d])'%(len(chunk)))
 
     client_args = {"timeout": 30}
 
@@ -385,7 +385,7 @@ def fetch_users_worker(parameter, chunk, output_folder, filename, available, api
                 client_args['proxies'] = proxy['proxy_dict']
 
             twitterCralwer = TwitterCrawler(apikeys=apikeys, client_args=client_args, output_folder = output_folder)
-            retry = twitterCralwer.fetch_users(parameter=parameter, parameter_values=chuck, filename=filename)
+            retry = twitterCralwer.fetch_users(parameter=parameter, parameter_values=chunk, filename=filename)
             logger.info("retry: %s"%(retry))
     # except StopIteration as exc:
     #     pass
@@ -420,10 +420,6 @@ def collect_users(parameter, users_config_filename, output_folder, config, n_wor
 
     chunks = [users_config[x:x+100] for x in range(0, len(users_config), 100)]
 
-    logger.info(chunks)
-
-    quit()
-
     max_workers = max_workers if max_workers < len(users_config) else len(users_config)
     max_workers = n_workers if n_workers < max_workers else max_workers
     logger.info("concurrent workers: [%d]"%(max_workers))
@@ -433,7 +429,7 @@ def collect_users(parameter, users_config_filename, output_folder, config, n_wor
 
         try:
 
-            for chunk in chucks:
+            for chunk in chunks:
 
                 while(len(available_apikey_proxy_pairs) == 0):
                     logger.info('no available_apikey_proxy_pairs, wait for 5s to retry...')
@@ -444,17 +440,23 @@ def collect_users(parameter, users_config_filename, output_folder, config, n_wor
                 now = datetime.datetime.now()
                 filename = now.strftime('%Y%m%d%H%M%S')
                 future_ = executor.submit(
-                            fetch_users_worker, parameter, chuck, output_folder, filename, available_apikey_proxy_pairs.pop(), apikey_proxy_pairs_dict)
+                            fetch_users_worker, parameter, chunk, output_folder, filename, available_apikey_proxy_pairs.pop(), apikey_proxy_pairs_dict)
 
                 future_.add_done_callback(functools.partial(fetch_users_worker_done, available_apikey_proxy_pairs=available_apikey_proxy_pairs))
 
                 futures_.append(future_)
+            else:
+                concurrent.futures.wait(futures_)
+                executor.shutdown()
+                return False
 
         except KeyboardInterrupt:
             logger.warn('You pressed Ctrl+C! But we will wait until all sub processes are finished...')
             concurrent.futures.wait(futures_)
             executor.shutdown()
             raise
+
+
 
 def fetch_user_relationships_worker(user_id, resource_family, call, now, output_folder, available, apikey_proxy_pairs_dict):
 
@@ -842,9 +844,9 @@ if __name__=="__main__":
                     elif (args.command == 'timeline'):
                         collect_tweets_by_user_ids(args.command_config, args.output, config, args.workers, proxies)
                     elif (args.command == 'users_by_user_id'):
-                        collect_users('user_id', args.command_config, args.output, config, args.workers, proxies)
+                        retry = collect_users('user_id', args.command_config, args.output, config, args.workers, proxies)
                     elif (args.command == 'users_by_screen_name'):
-                        collect_users('screen_name', args.command_config, args.output, config, args.workers, proxies)
+                        retry = collect_users('screen_name', args.command_config, args.output, config, args.workers, proxies)
                     elif (args.command in ['/friends/ids', '/friends/list', '/followers/ids', '/followers/list']):
                         retry = collect_user_relatinoships_by_user_ids(args.command, args.command_config, args.output, config, args.workers, proxies)
                 except KeyboardInterrupt:
