@@ -684,11 +684,12 @@ def search_by_terms_worker(search_config, now, output_folder, available, apikey_
     proxies = iter(proxies) if proxies else None
 
     search_terms = [term.lower() for term in search_config['terms']]
-    querystring = '%s'%(' OR '.join('"' + term + '"' for term in search_terms))
+    querystring = '%s'%(' OR '.join('(' + term + ')' for term in search_terms))
     output_filename = search_config['output_filename'] if 'output_filename' in search_config else md5(querystring.encode('utf-8'))
     since_id = search_config['since_id'] if 'since_id' in search_config else 0
 
-    logger.info('REQUEST -> (output_filename: [%s]; since_id: [%d])'%(output_filename, since_id))
+
+    logger.info('REQUEST -> (output_filename: [%s]; since_id: [%d];)'%(output_filename, since_id))
 
     client_args = {"timeout": 30}
 
@@ -774,13 +775,13 @@ def collect_tweets_by_search_terms(search_configs_filename, output_folder, confi
         try:
             for search_config_id in itertools.cycle(search_configs):
 
-                search_config = search_configs[search_config_id]
-
                 while(len(available_apikey_proxy_pairs) == 0):
-                    logger.info('no available_apikey_proxy_pairs, wait for 5s to retry...')
-                    time.sleep(5)
+                    logger.info('no available_apikey_proxy_pairs, wait for 30s to retry...')
+                    time.sleep(30)
 
                 now = datetime.datetime.now()
+                
+                search_config = search_configs[search_config_id]
 
                 future_ = executor.submit(
                             search_by_terms_worker, search_config, now, output_folder, available_apikey_proxy_pairs.pop(), apikey_proxy_pairs_dict)

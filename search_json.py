@@ -15,16 +15,20 @@ def md5(data):
     return hashlib.md5(data).hexdigest()
 
 
-search_terms = ['hpv', '#hpv', 'Human Papillomavirus Vaccines', 'Human Papillomavirus Vaccine',
-    'HumanPapillomavirusVaccine', '#HumanPapillomavirusVaccine'
+search_terms = ["hpv", "#hpv", "Human Papillomavirus Vaccines", "Human Papillomavirus Vaccine",
+    "HumanPapillomavirusVaccine", "#HumanPapillomavirusVaccine",
+    "Gardasil", "#Gardasil", "Human Papillomavirus", "Cervarix",
+    "cervical cancer", "cervical #cancer", "#cervical cancer", "cervicalcancer", "#cervicalcancer"
     ]
 def generate_search_json():
 
     with open('search.json', 'w') as wf:
         results = {}
 
-        querystring = '%s'%(' OR '.join('"' + term.lower() + '"' for term in search_terms))
+        querystring = '%s'%(', '.join('"' + term.lower() + '"' for term in search_terms))
 
+        logger.info(querystring)
+        #quit()
         output_filename = md5(querystring.encode('utf-8'))
 
         
