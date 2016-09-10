@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 
 import logging
@@ -35,6 +33,7 @@ def test_apikeys(apikeys):
         logger.info("apikeys [%s] failed: %s"%(apikeys, exc))
         return False
 
+
     
 
 if __name__=="__main__":
@@ -45,6 +44,7 @@ if __name__=="__main__":
         for f0rmer in config['apikeys']:
             logger.info('testing... [%s]'%(f0rmer))
             is_valid = test_apikeys(config['apikeys'][f0rmer])
+            print (is_valid)
             if( not is_valid):
                 logger.info('[%s] is NOT valid'%(f0rmer))
 

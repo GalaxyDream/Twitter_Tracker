@@ -23,10 +23,14 @@ from twitter_tracker import TwitterCrawler
 
 def test_twython_proxy():
     apikeys = {
-        "app_key":"m1laIIM5JEJt7O9eEzUg",
-        "app_secret":"GMh2YtW3pBijwMcDLS1LtR5bElVd3SOeytyG5agE",
-        "oauth_token":"1948122342-EpbQDurZgv5bfZsTtJio9t9gUw7a2k0FHPl87cj",
-        "oauth_token_secret":"Eyj60DhrtCF1KgJZ1ZvXvsSEHxIQVB6EYnTIu6RKEe8"
+        #"app_key":"m1laIIM5JEJt7O9eEzUg",
+        #"app_secret":"GMh2YtW3pBijwMcDLS1LtR5bElVd3SOeytyG5agE",
+        #"oauth_token":"1948122342-EpbQDurZgv5bfZsTtJio9t9gUw7a2k0FHPl87cj",
+        #"oauth_token_secret":"Eyj60DhrtCF1KgJZ1ZvXvsSEHxIQVB6EYnTIu6RKEe8"
+        "app_key": "Zt9Zfm2dmvx3PWc5o9VS3AEkz",
+        "app_secret": "Ljp8bDrpaOJJobxwjx8i25IjzJEoBIDKg92VCup3F4Dx8FR76L",
+        "oauth_token": "4718250675-JWFut0BpNF4QiYTOlIVRFxicsqtwh8PfnCY8anN",
+        "oauth_token_secret": "Dteb4Ud7qazLWk0saVntVzHPSB3c8J3B9b4YKqt4GhxVy"
     }
 
     proxies = [{"108.165.33.8:3128": "http"}, {"107.182.17.243:8089": "http"}]
