@@ -208,12 +208,11 @@ class TwitterCrawler(twython.Twython):
         with open(filename, 'w') as f:
             pass
 
-        cnt = 0
-
         retry_cnt = MAX_RETRY_CNT
         while retry_cnt > 0:
             try:
                 result = self.get_retweets(id=tweet_id, count=100)
+                logger.info("find %d retweets of [%d]"%(len(result), tweet_id))
                 if(len(result) > 0):
                     with open(filename, 'a+') as f:
 
@@ -221,6 +220,8 @@ class TwitterCrawler(twython.Twython):
 
 
                 time.sleep(1)
+
+                return False
 
             except twython.exceptions.TwythonRateLimitError:
                 self.rate_limit_error_occured('statuses', '/statuses/retweets/:id')

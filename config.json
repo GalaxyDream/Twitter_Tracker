@@ -1,18 +1,10 @@
 {
         "apikeys": {
-<<<<<<< HEAD
-                "i0mf0rmer01": {
-                        "app_key": "Zt9Zfm2dmvx3PWc5o9VS3AEkz",
-                        "app_secret": "Ljp8bDrpaOJJobxwjx8i25IjzJEoBIDKg92VCup3F4Dx8FR76L",
-                        "oauth_token": "4718250675-JWFut0BpNF4QiYTOlIVRFxicsqtwh8PfnCY8anN",
-                        "oauth_token_secret": "Dteb4Ud7qazLWk0saVntVzHPSB3c8J3B9b4YKqt4GhxVy"
-=======
                 "i0mf0rmer034": {
                         "app_key": "1Evh9wfCV8PS7azz6M5OBQ",
                         "app_secret": "WMjMS0NNxzrGMzlOo0UuWKqlpwyaSFpm08rKZHbc",
                         "oauth_token": "1948122342-JqQWyWzw3WZV9QMPYEgh0gkZ9PbEnDGNoCkPFHe",
                         "oauth_token_secret": "3Z8pSbM28hSZrMOjduR2WttUDI4fBLtr00L3XXgNg"
->>>>>>> e71b428031cbde0f6ed2077de07e9442cbdfc2cc
                 }
         }
 }
