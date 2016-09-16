@@ -9,7 +9,6 @@ logging.basicConfig(level=logging.DEBUG, format='(%(asctime)s) [%(process)d] %(l
 requests_log = logging.getLogger("requests")
 requests_log.setLevel(logging.WARNING)
 
-from reader_csv_column import CsvFile,EXCLUDE
 import sys, time, argparse, json, os, pprint, datetime, copy
 import twython
 from util import full_stack, chunks, md5
@@ -661,7 +660,7 @@ def collect_user_relatinoships_by_user_ids(call, user_ids_config_filename, outpu
             executor.shutdown()
             raise
 
-def collect_retweets_by_tweets_ids(output_folder, config, tweets_ids, n_workers , proxies , level):
+def collect_retweets_by_tweets_ids(output_folder = None, config = None, tweets_ids = set(), n_workers = 1, proxies = None, level = -1):
 
         apikey_proxy_pairs_dict = apikey_proxy_pairs(config['apikeys'], proxies)
 
@@ -698,17 +697,18 @@ def collect_retweets_by_tweets_ids(output_folder, config, tweets_ids, n_workers 
 
                     futures_.append(future_)
                 else:
-                    logger.info('finished one layer')
+                    # logger.info('finished one layer')
                     concurrent.futures.wait(futures_)
                     executor.shutdown()
                     level -= 1
-                    logger.info("working on level %s"%(level))
+                    logger.info("[RETWEETS]: working on level %s"%(level))
                     if ((level == 0) or (len(retweet_ids) == 0)):
                         return False
-                    elif ((level > 0 or level < 0) and len(retweet_ids) > 0):
+                    #elif ((level > 0 or level < 0) and len(retweet_ids) > 0):
+                    else:
                         collect_retweets_by_tweets_ids(output_folder = output_folder, config = config, tweets_ids = retweet_ids, n_workers = n_workers, proxies = proxies, level = level)
-                        return False
-                    return False
+
+                return False
 
             except KeyboardInterrupt:
                 logger.warn('You pressed Ctrl+C! But we will wait until all sub processes are finished...')
@@ -716,18 +716,23 @@ def collect_retweets_by_tweets_ids(output_folder, config, tweets_ids, n_workers 
                 executor.shutdown()
                 raise
 
-def get_finite_retweets (csvfilename, output_folder, config, n_workers = mp.cpu_count(), proxies = [], level = 0):
-    if (csvfilename.endswith('.csv')):
+        return False
+
+def collect_retweets (input_filename, output_folder, config, n_workers = mp.cpu_count(), proxies = [], level = 0):
+    tweets_ids = set()
+
+    if (input_filename.endswith('.csv')):
+        from reader_csv_column import CsvFile,EXCLUDE
         csvfile = CsvFile(csvfilename)
-        tweets_ids = set()
         id_column = csvfile.get_column('id')
         for element in id_column:
             tweets_ids.add(int(element))
-        collect_retweets_by_tweets_ids(output_folder = output_folder, config = config, tweets_ids = tweets_ids, n_workers = n_workers, proxies = proxies, level = level)
-        return False
-    else:
-        return False
+    elif (input_filename.endswith('.json')):
+        with open(os.path.abspath(user_ids_config_filename), 'r') as user_ids_config_rf:
+            tweets_ids = set(json.load(user_ids_config_rf))
 
+    if (len(tweets_ids) > 0):
+        return collect_retweets_by_tweets_ids(output_folder = output_folder, config = config, tweets_ids = tweets_ids, n_workers = n_workers, proxies = proxies, level = level)
 
 def fetch_user_timeline_worker(user_config, now, output_folder, available, apikey_proxy_pairs_dict):
 
@@ -1019,7 +1024,7 @@ if __name__=="__main__":
                     elif (args.command in ['/friends/ids', '/friends/list', '/followers/ids', '/followers/list']):
                         retry = collect_user_relatinoships_by_user_ids(args.command, args.command_config, args.output, config, args.workers, proxies)
                     elif (args.command == '/statuses/retweets/:id'):
-                        retry = get_finite_retweets(args.command_config, args.output, config, args.workers, proxies, args.level)
+                        retry = collect_retweets(args.command_config, args.output, config, args.workers, proxies, args.level)
                 except KeyboardInterrupt:
                     retry = False
                     raise
