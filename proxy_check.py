@@ -13,8 +13,10 @@ import requests, concurrent.futures, os, json
 import twython
 
 def check_proxy_twython(proxy, timeout):
-    APP_KEY = "TMsmNlRUDt3HckXGMduLrqKPz"
-    APP_SCRET = "dUk0pYMioi3oHvjIFXzfN5DPowGIy04A63FtoNH9zYePR14QOo"
+    #APP_KEY = "TMsmNlRUDt3HckXGMduLrqKPz"
+    #APP_SCRET = "dUk0pYMioi3oHvjIFXzfN5DPowGIy04A63FtoNH9zYePR14QOo"
+    APP_KEY = "Zt9Zfm2dmvx3PWc5o9VS3AEkz"
+    APP_SCRET = "Ljp8bDrpaOJJobxwjx8i25IjzJEoBIDKg92VCup3F4Dx8FR76L"
 
     proxy_ip = list(proxy.keys())[0]
     proxy_type = list(proxy.values())[0]

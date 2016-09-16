@@ -22,7 +22,7 @@ import signal
 import re
 #sys.path.append(".")
 
-
+namelist = []
 MAX_RETRY_CNT = 3
 class TwitterCrawler(twython.Twython):
 
@@ -176,6 +176,7 @@ class TwitterCrawler(twython.Twython):
 
                 time.sleep(1)
 
+
             except twython.exceptions.TwythonRateLimitError:
                 self.rate_limit_error_occured(resource_family, call)
             except Exception as exc:
@@ -188,6 +189,55 @@ class TwitterCrawler(twython.Twython):
 
         logger.info("[%s] total [%s]: %d; "%(user_id, call, cnt))
         return False
+
+    def fetch_retweets(self, tweet_id = None, now=datetime.datetime.now()):
+        '''
+        call: /friends/ids, /friends/list, /followers/ids, and /followers/list
+        '''
+        # print(type(tweet_id))
+        
+        if not tweet_id:
+            raise Exception("retweet: retweet_id cannot be None")
+
+        retweet_ids = set()
+
+        day_output_folder = os.path.abspath('%s/%s'%(self.output_folder, now.strftime('%Y%m%d')))
+
+        if not os.path.exists(day_output_folder):
+            os.makedirs(day_output_folder)
+
+        filename = os.path.abspath('%s/%s'%(day_output_folder, tweet_id))
+
+        with open(filename, 'w') as f:
+            pass
+        retry_cnt = MAX_RETRY_CNT
+        while retry_cnt > 0:
+            try:
+                result = self.get_retweets(id=tweet_id, count=100, trim_user = 1)
+                logger.info("find %d retweets of [%d]"%(len(result), tweet_id))
+                for tweet in result:
+                    retweet_ids.add(tweet['id'])
+                
+                if(len(result) > 0):
+                    with open(filename, 'a+') as f:
+
+                        f.write('%s\n'%json.dumps(result))
+
+                time.sleep(1)
+                
+                return False, retweet_ids
+
+            except twython.exceptions.TwythonRateLimitError:
+                self.rate_limit_error_occured('statuses', '/statuses/retweets/:id')
+            except Exception as exc:
+                time.sleep(10)
+                logger.error("exception: %s; when fetching tweet_id: %d"%(exc, tweet_id))
+                retry_cnt -= 1
+                if (retry_cnt == 0):
+                    logger.warn("exceed max retry... return")
+                    return False, retweet_ids
+
+        return False, retweet_ids
 
     def fetch_user_timeline(self, user_id = None,  now=datetime.datetime.now(), since_id = 1):
 
@@ -456,6 +506,54 @@ def collect_users(parameter, users_config_filename, output_folder, config, n_wor
             executor.shutdown()
             raise
 
+def fetch_retweets_worker(tweet_id, now, output_folder, available, apikey_proxy_pairs_dict):
+
+    # Ignore the SIGINT signal by setting the handler to the standard
+    # signal handler SIG_IGN.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+    apikeys = copy.copy(apikey_proxy_pairs_dict[available]['apikeys'])
+    proxies = copy.copy(apikey_proxy_pairs_dict[available]['proxies'])
+
+    proxies = iter(proxies) if proxies else None
+
+    logger.info('REQUEST -> (tweet_id: [%d])'%(tweet_id))
+
+    client_args = {"timeout": 60}
+
+    retry = True
+    retweet_ids = set()
+    try:
+        while(retry):
+            if proxies:
+                proxy = next(proxies)
+                logger.info('checking [%s]'%proxy)
+                passed, proxy = check_proxy_twython(proxy['proxy'], 5)
+                if not passed:
+                    logger.warn('proxy failed, retry next one')
+                    continue
+                client_args['proxies'] = proxy['proxy_dict']
+
+            twitterCralwer = TwitterCrawler(apikeys=apikeys, client_args=client_args, output_folder = output_folder)
+            retry, retweet_ids = twitterCralwer.fetch_retweets(tweet_id, now=now)
+            logger.info("retry: %s"%(retry))
+    # except StopIteration as exc:
+    #     pass
+    except Exception as exc:
+        logger.error(exc)
+        pass
+
+
+    return available, retweet_ids
+
+def fetch_retweets_worker_done(future, available_apikey_proxy_pairs = [], retweet_ids = set()):
+
+    available, this_retweet_ids = future.result()
+
+    logger.info('finished... [%s]'%available)
+    available_apikey_proxy_pairs.append(available)
+    retweet_ids |= this_retweet_ids
+
 
 
 def fetch_user_relationships_worker(user_id, resource_family, call, now, output_folder, available, apikey_proxy_pairs_dict):
@@ -543,6 +641,7 @@ def collect_user_relatinoships_by_user_ids(call, user_ids_config_filename, outpu
                     logger.info('no available_apikey_proxy_pairs, wait for 5s to retry...')
                     time.sleep(5)
 
+
                 now = datetime.datetime.now()
                 future_ = executor.submit(
                             fetch_user_relationships_worker, user_id, resource_family, call, now, output_folder, available_apikey_proxy_pairs.pop(), apikey_proxy_pairs_dict)
@@ -554,12 +653,86 @@ def collect_user_relatinoships_by_user_ids(call, user_ids_config_filename, outpu
                 concurrent.futures.wait(futures_)
                 executor.shutdown()
                 return False
-                
+
         except KeyboardInterrupt:
             logger.warn('You pressed Ctrl+C! But we will wait until all sub processes are finished...')
             concurrent.futures.wait(futures_)
             executor.shutdown()
             raise
+
+def collect_retweets_by_tweets_ids(output_folder = None, config = None, tweets_ids = set(), n_workers = 1, proxies = None, level = -1):
+
+        apikey_proxy_pairs_dict = apikey_proxy_pairs(config['apikeys'], proxies)
+
+        available_apikey_proxy_pairs = list(apikey_proxy_pairs_dict.keys())
+
+        max_workers = len(available_apikey_proxy_pairs)
+
+        logger.info("tracking[%d] tweet" %(len(tweets_ids)))
+
+        max_workers = max_workers if max_workers < len(tweets_ids) else len(tweets_ids)
+        max_workers = n_workers if n_workers < max_workers else max_workers
+        logger.info("concurrent workers: [%d]" %(max_workers))
+
+        retweet_ids = set()
+        futures_ = []
+
+        with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+
+            try:
+
+
+                for tweet_id in tweets_ids:
+                    namelist.append(tweet_id)
+
+                    while(len(available_apikey_proxy_pairs) == 0):
+                        logger.info('no available_apikey_proxy_pairs, wait for 5s to retry...')
+                        time.sleep(5)
+
+                    now = datetime.datetime.now()
+                    future_ = executor.submit(
+                                fetch_retweets_worker, tweet_id, now, output_folder, available_apikey_proxy_pairs.pop(), apikey_proxy_pairs_dict)
+
+                    future_.add_done_callback(functools.partial(fetch_retweets_worker_done, available_apikey_proxy_pairs=available_apikey_proxy_pairs, retweet_ids = retweet_ids))
+
+                    futures_.append(future_)
+                else:
+                    # logger.info('finished one layer')
+                    concurrent.futures.wait(futures_)
+                    executor.shutdown()
+                    level -= 1
+                    logger.info("[RETWEETS]: working on level %s"%(level))
+                    if ((level == 0) or (len(retweet_ids) == 0)):
+                        return False
+                    #elif ((level > 0 or level < 0) and len(retweet_ids) > 0):
+                    else:
+                        collect_retweets_by_tweets_ids(output_folder = output_folder, config = config, tweets_ids = retweet_ids, n_workers = n_workers, proxies = proxies, level = level)
+
+                return False
+
+            except KeyboardInterrupt:
+                logger.warn('You pressed Ctrl+C! But we will wait until all sub processes are finished...')
+                concurrent.futures.wait(futures_)
+                executor.shutdown()
+                raise
+
+        return False
+
+def collect_retweets (input_filename, output_folder, config, n_workers = mp.cpu_count(), proxies = [], level = 0):
+    tweets_ids = set()
+
+    if (input_filename.endswith('.csv')):
+        from reader_csv_column import CsvFile,EXCLUDE
+        csvfile = CsvFile(csvfilename)
+        id_column = csvfile.get_column('id')
+        for element in id_column:
+            tweets_ids.add(int(element))
+    elif (input_filename.endswith('.json')):
+        with open(os.path.abspath(user_ids_config_filename), 'r') as user_ids_config_rf:
+            tweets_ids = set(json.load(user_ids_config_rf))
+
+    if (len(tweets_ids) > 0):
+        return collect_retweets_by_tweets_ids(output_folder = output_folder, config = config, tweets_ids = tweets_ids, n_workers = n_workers, proxies = proxies, level = level)
 
 def fetch_user_timeline_worker(user_config, now, output_folder, available, apikey_proxy_pairs_dict):
 
@@ -807,13 +980,13 @@ if __name__=="__main__":
         'twitter_tracker.log', maxBytes=50 * 1024 * 1024, backupCount=10)
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', help="config.json that contains twitter api keys;", default="./config.json")
     parser.add_argument('-p', '--proxies', help="the proxies.json file", default="./proxies.json")
     parser.add_argument('-o','--output', help="output folder data", default="./data/")
     parser.add_argument('-cmd','--command', help="search by keywords (search) or crawl user timelines (timeline)", default="search")
     parser.add_argument('-cc','--command_config', help="existing progress data", default="search.json")
+    parser.add_argument('-l','--level', help = "typing a int to indicite how many layer of retweets you want to fetch", type = int, default = 3)
     parser.add_argument('-w','--workers', help="number of workers (will only be effective if it's smaller than the number of proxies avaliable)", type=int, default=8)
     # "output": "/Volumes/DATA2/twitterlab/twittertracker/data"
 
@@ -822,8 +995,8 @@ if __name__=="__main__":
     if not args.command:
         raise MissingArgs('command is missing')
 
-    if not args.command_config:
-        raise MissingArgs('command config data is missing')
+    # if not args.command_config or not args.csvfile:
+    #     raise MissingArgs('command config data is missing')
 
     with open(os.path.abspath(args.config), 'r') as config_f:
         config = json.load(config_f)
@@ -850,6 +1023,8 @@ if __name__=="__main__":
                         retry = collect_users('screen_name', args.command_config, args.output, config, args.workers, proxies)
                     elif (args.command in ['/friends/ids', '/friends/list', '/followers/ids', '/followers/list']):
                         retry = collect_user_relatinoships_by_user_ids(args.command, args.command_config, args.output, config, args.workers, proxies)
+                    elif (args.command == '/statuses/retweets/:id'):
+                        retry = collect_retweets(args.command_config, args.output, config, args.workers, proxies, args.level)
                 except KeyboardInterrupt:
                     retry = False
                     raise
