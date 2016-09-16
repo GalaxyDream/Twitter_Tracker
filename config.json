@@ -1,10 +1,10 @@
 {
         "apikeys": {
                 "i0mf0rmer034": {
-                        "app_key": "1Evh9wfCV8PS7azz6M5OBQ",
-                        "app_secret": "WMjMS0NNxzrGMzlOo0UuWKqlpwyaSFpm08rKZHbc",
-                        "oauth_token": "1948122342-JqQWyWzw3WZV9QMPYEgh0gkZ9PbEnDGNoCkPFHe",
-                        "oauth_token_secret": "3Z8pSbM28hSZrMOjduR2WttUDI4fBLtr00L3XXgNg"
+                        "app_key": "app_key",
+                        "app_secret": "app_secret",
+                        "oauth_token": "oauth_token",
+                        "oauth_token_secret": "oauth_token_secret"
                 }
         }
 }
