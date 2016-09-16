@@ -22,8 +22,9 @@ import signal
 import re
 #sys.path.append(".")
 
-namelist = []
 MAX_RETRY_CNT = 3
+WAIT_TIME = 30
+
 class TwitterCrawler(twython.Twython):
 
     def __init__(self, *args, **kwargs):
@@ -483,7 +484,7 @@ def collect_users(parameter, users_config_filename, output_folder, config, n_wor
 
                 while(len(available_apikey_proxy_pairs) == 0):
                     logger.info('no available_apikey_proxy_pairs, wait for 5s to retry...')
-                    time.sleep(5)
+                    time.sleep(WAIT_TIME)
 
                 time.sleep(1)
 
@@ -639,7 +640,7 @@ def collect_user_relatinoships_by_user_ids(call, user_ids_config_filename, outpu
 
                 while(len(available_apikey_proxy_pairs) == 0):
                     logger.info('no available_apikey_proxy_pairs, wait for 5s to retry...')
-                    time.sleep(5)
+                    time.sleep(WAIT_TIME)
 
 
                 now = datetime.datetime.now()
@@ -683,11 +684,10 @@ def collect_retweets_by_tweets_ids(output_folder = None, config = None, tweets_i
 
 
                 for tweet_id in tweets_ids:
-                    namelist.append(tweet_id)
 
                     while(len(available_apikey_proxy_pairs) == 0):
                         logger.info('no available_apikey_proxy_pairs, wait for 5s to retry...')
-                        time.sleep(5)
+                        time.sleep(WAIT_TIME)
 
                     now = datetime.datetime.now()
                     future_ = executor.submit(
@@ -829,7 +829,7 @@ def collect_tweets_by_user_ids(users_config_filename, output_folder, config, n_w
 
                 while(len(available_apikey_proxy_pairs) == 0):
                     logger.info('no available_apikey_proxy_pairs, wait for 5s to retry...')
-                    time.sleep(5)
+                    time.sleep(WAIT_TIME)
 
                 now = datetime.datetime.now()
                 future_ = executor.submit(
@@ -950,7 +950,7 @@ def collect_tweets_by_search_terms(search_configs_filename, output_folder, confi
 
                 while(len(available_apikey_proxy_pairs) == 0):
                     logger.info('no available_apikey_proxy_pairs, wait for 30s to retry...')
-                    time.sleep(30)
+                    time.sleep(WAIT_TIME)
 
                 now = datetime.datetime.now()
                 
@@ -986,17 +986,16 @@ if __name__=="__main__":
     parser.add_argument('-o','--output', help="output folder data", default="./data/")
     parser.add_argument('-cmd','--command', help="search by keywords (search) or crawl user timelines (timeline)", default="search")
     parser.add_argument('-cc','--command_config', help="existing progress data", default="search.json")
-    parser.add_argument('-l','--level', help = "typing a int to indicite how many layer of retweets you want to fetch", type = int, default = 3)
+    parser.add_argument('-l','--level', help = "typing a int to indicate how many layer of retweets you want to fetch", type = int, default = 3)
     parser.add_argument('-w','--workers', help="number of workers (will only be effective if it's smaller than the number of proxies avaliable)", type=int, default=8)
-    # "output": "/Volumes/DATA2/twitterlab/twittertracker/data"
+    parser.add_argument('-wait','--wait_time', help="wait time to check available api keys", type=int, default=30)
 
     args = parser.parse_args()
 
     if not args.command:
         raise MissingArgs('command is missing')
 
-    # if not args.command_config or not args.csvfile:
-    #     raise MissingArgs('command config data is missing')
+    WAIT_TIME = args.wait_time
 
     with open(os.path.abspath(args.config), 'r') as config_f:
         config = json.load(config_f)
