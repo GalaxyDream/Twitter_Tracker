@@ -483,7 +483,7 @@ def collect_users(parameter, users_config_filename, output_folder, config, n_wor
             for chunk in chunks:
 
                 while(len(available_apikey_proxy_pairs) == 0):
-                    logger.info('no available_apikey_proxy_pairs, wait for 5s to retry...')
+                    logger.info('no available_apikey_proxy_pairs, wait for %ds to retry...'%WAIT_TIME)
                     time.sleep(WAIT_TIME)
 
                 time.sleep(1)
@@ -639,7 +639,7 @@ def collect_user_relatinoships_by_user_ids(call, user_ids_config_filename, outpu
             for user_id in user_ids:
 
                 while(len(available_apikey_proxy_pairs) == 0):
-                    logger.info('no available_apikey_proxy_pairs, wait for 5s to retry...')
+                    logger.info('no available_apikey_proxy_pairs, wait for %ds to retry...'%WAIT_TIME)
                     time.sleep(WAIT_TIME)
 
 
@@ -686,7 +686,7 @@ def collect_retweets_by_tweets_ids(output_folder = None, config = None, tweets_i
                 for tweet_id in tweets_ids:
 
                     while(len(available_apikey_proxy_pairs) == 0):
-                        logger.info('no available_apikey_proxy_pairs, wait for 5s to retry...')
+                        logger.info('no available_apikey_proxy_pairs, wait for %ds to retry...'%WAIT_TIME)
                         time.sleep(WAIT_TIME)
 
                     now = datetime.datetime.now()
@@ -828,7 +828,7 @@ def collect_tweets_by_user_ids(users_config_filename, output_folder, config, n_w
                     continue
 
                 while(len(available_apikey_proxy_pairs) == 0):
-                    logger.info('no available_apikey_proxy_pairs, wait for 5s to retry...')
+                    logger.info('no available_apikey_proxy_pairs, wait for %ds to retry...'%WAIT_TIME)
                     time.sleep(WAIT_TIME)
 
                 now = datetime.datetime.now()
@@ -949,7 +949,7 @@ def collect_tweets_by_search_terms(search_configs_filename, output_folder, confi
             for search_config_id in itertools.cycle(search_configs):
 
                 while(len(available_apikey_proxy_pairs) == 0):
-                    logger.info('no available_apikey_proxy_pairs, wait for 30s to retry...')
+                    logger.info('no available_apikey_proxy_pairs, wait for %ds to retry...'%WAIT_TIME)
                     time.sleep(WAIT_TIME)
 
                 now = datetime.datetime.now()
