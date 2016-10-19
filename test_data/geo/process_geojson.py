@@ -75,10 +75,23 @@ def process_us_states(geoJSON_file):
                     json.dump({'name': n, 'locations': ','.join(locations)}, wf)
 
 
+def process_us_counties(geoJSON_file):
+    with open(geoJSON_file, 'rb') as gf:
+        us = json.loads(gf.read().decode('utf-8','ignore'))
+        logger.info(len(us['features']))
+        
+        name = []
+        locations = []
+        cnt = 0
+        
+        for county in us['features']:
+            logger.info(county)
+            quit()
+
 if __name__=="__main__":
 
     logger.info(sys.version)
 
-    process_us_states('gz_2010_us_040_00_20m.json')
-
+    #process_us_states('gz_2010_us_040_00_20m.json')
+    process_us_counties('gz_2010_us_050_00_20m.json')
 
