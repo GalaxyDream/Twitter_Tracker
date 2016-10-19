@@ -83,16 +83,23 @@ def collect_public_tweets(config, output_folder):
 
 def filter_by_locations(config, output_folder, locations = None):
 
-    streamer = init_streamer(config, output_folder)
+    with open(os.path.abspath(locations), 'r') as locations_f:
+
+        geo_locations = json.load(locations_f)
+
+        name = geo_locations['name']
+        locations = geo_locations['locations']
+
+        streamer = init_streamer(config, '%s/%s'%(output_folder,name))
     
-    logger.info("start collecting.....")
+        logger.info("start collecting for %s....."%(name))
 
-    if (locations and locations.endswith('.json')):
-        with open(os.path.abspath(locations), 'r') as locations_f:
-            locations = json.load(locations_f)
-            locations = ','.join([','.join([str(g) for g in pair]) for pair in locations['bounding_box']])
+    # if (locations and locations.endswith('.json')):
+    #     with open(os.path.abspath(locations), 'r') as locations_f:
+    #         locations = json.load(locations_f)
+    #         locations = ','.join([','.join([str(g) for g in pair]) for pair in locations['bounding_box']])
 
-    streamer.statuses.filter(locations=locations)
+        streamer.statuses.filter(locations=locations)
 
 
 if __name__=="__main__":

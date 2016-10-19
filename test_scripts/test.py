@@ -10,59 +10,59 @@ requests_log.setLevel(logging.DEBUG)
 
 import sys, time, argparse, json, os, pprint
 import twython
-from util import full_stack, chunks, md5
-from proxy_check import check_proxy, proxy_checker
-from exceptions import NotImplemented, MissingArgs, WrongArgs, InvalidConfig, MaxRetryReached
-import concurrent.futures
-import functools
-sys.path.append(".")
+# from util import full_stack, chunks, md5
+# from proxy_check import check_proxy, proxy_checker
+# from exceptions import NotImplemented, MissingArgs, WrongArgs, InvalidConfig, MaxRetryReached
+# import concurrent.futures
+# import functools
+sys.path.append("..")
 
 
 from twitter_tracker import TwitterCrawler
 
 
-def test_twython_proxy():
+def test_twython():
     apikeys = {
         #"app_key":"m1laIIM5JEJt7O9eEzUg",
         #"app_secret":"GMh2YtW3pBijwMcDLS1LtR5bElVd3SOeytyG5agE",
         #"oauth_token":"1948122342-EpbQDurZgv5bfZsTtJio9t9gUw7a2k0FHPl87cj",
         #"oauth_token_secret":"Eyj60DhrtCF1KgJZ1ZvXvsSEHxIQVB6EYnTIu6RKEe8"
-        "app_key": "Zt9Zfm2dmvx3PWc5o9VS3AEkz",
-        "app_secret": "Ljp8bDrpaOJJobxwjx8i25IjzJEoBIDKg92VCup3F4Dx8FR76L",
-        "oauth_token": "4718250675-JWFut0BpNF4QiYTOlIVRFxicsqtwh8PfnCY8anN",
-        "oauth_token_secret": "Dteb4Ud7qazLWk0saVntVzHPSB3c8J3B9b4YKqt4GhxVy"
     }
 
-    proxies = [{"108.165.33.8:3128": "http"}, {"107.182.17.243:8089": "http"}]
-    proxies = proxy_checker(proxies)
+    # proxies = [{"108.165.33.8:3128": "http"}, {"107.182.17.243:8089": "http"}]
+    # proxies = proxy_checker(proxies)
 
-    search_terms = ["#blacktransrevolution"]
-    search_terms = [term.lower() for term in search_terms]
-    querystring = '%s'%(' OR '.join('"' + term + '"' for term in search_terms))
+    # search_terms = ["#blacktransrevolution"]
+    # search_terms = [term.lower() for term in search_terms]
+    # querystring = '%s'%(' OR '.join('"' + term + '"' for term in search_terms))
 
 
-    for proxy in proxies:
-        passed, proxy = check_proxy(proxy['proxy'], 5)
+    # for proxy in proxies:
+    #     passed, proxy = check_proxy(proxy['proxy'], 5)
 
-        if not passed:
-           logger.warn('proxy failed, retry next one')
-           continue
+    #     if not passed:
+    #        logger.warn('proxy failed, retry next one')
+    #        continue
 
-        client_args = {
-            "timeout": 5,
-            "proxies": proxy['proxy_dict']
-        }
+    #     client_args = {
+    #         "timeout": 5,
+    #         "proxies": proxy['proxy_dict']
+    #     }
         # {
         #         "http": "http://108.165.33.8:3128",
         #         "https": "http://108.165.33.8:3128"
         #     }
-        logger.info('using [%s]'%proxy)
+        #logger.info('using [%s]'%proxy)
 
-        max_id = 0
-        twitterCralwer = TwitterCrawler(apikeys=apikeys, client_args=client_args, output_folder = './data')
-        max_id, retry = twitterCralwer.search_by_query(querystring, current_max_id = max_id, output_filename = 'testing')
-
-        quit()
+        #max_id = 0
+    client_args = {
+            "timeout": 5
+    }
+    twitterCralwer = TwitterCrawler(apikeys=apikeys, client_args=client_args, output_folder = './data')
+    #max_id, retry = twitterCralwer.search_by_query(querystring, current_max_id = max_id, output_filename = 'testing')
+    r = twitterCralwer.search_geo(query="beijing")
+    logger.info(r)
+    quit()
 
 
 def test_proxy():
@@ -78,4 +78,4 @@ def test_proxy():
 
 if __name__=="__main__":
 
-    test_proxy()
+    test_twython()
