@@ -20,6 +20,7 @@ import multiprocessing as mp
 import itertools
 import signal
 import re
+import pandas as pd
 #sys.path.append(".")
 
 MAX_RETRY_CNT = 3
@@ -60,6 +61,45 @@ class TwitterCrawler(twython.Twython):
         kwargs.update(apikeys)
 
         super(TwitterCrawler, self).__init__(*args, **kwargs)
+    def fetch_geo(self, query = None, now=datetime.datetime.now()):
+
+        if not query:
+            raise Exception("Cityname: NAME cannot be None")
+
+        day_output_folder = os.path.abspath('%s/%s'%(self.output_folder, now.strftime('%Y%m%d')))
+
+        if not os.path.exists(day_output_folder):
+            os.makedirs(day_output_folder)
+
+        filename = os.path.abspath('%s/%s'%(day_output_folder, 'county_geo'))
+
+        # with open(filename, 'w') as f:
+        #     pass
+        retry_cnt = MAX_RETRY_CNT
+        while retry_cnt > 0:
+            try:
+                logger.info("going to get geo %s" %query)
+                result = self.search_geo(query=query)
+                logger.info(result)
+                with open(filename, 'a+') as f:
+
+                    f.write('%s\n'%json.dumps(result))
+
+                time.sleep(1)
+                
+                return False
+
+            except twython.exceptions.TwythonRateLimitError:
+                self.rate_limit_error_occured('statuses', '/statuses/update')
+            except Exception as exc:
+                time.sleep(10)
+                logger.error("exception: %s; when fetching city: %d"%(exc, query))
+                retry_cnt -= 1
+                if (retry_cnt == 0):
+                    logger.warn("exceed max retry... return")
+                    return False
+
+        return False
 
     def rate_limit_error_occured(self, resource, api):
         rate_limits = self.get_application_rate_limit_status(resources=[resource])
@@ -969,6 +1009,109 @@ def collect_tweets_by_search_terms(search_configs_filename, output_folder, confi
 
             executor.shutdown()
             raise
+def search_by_city_worker_done(future, output_folder=None, now = None, search_configs_filename = None, available_apikey_proxy_pairs = []):
+
+    available = future.result()
+
+
+    available_apikey_proxy_pairs.append(available)
+
+def search_by_city_worker(search_config, now, output_folder, available, apikey_proxy_pairs_dict):
+    # Ignore the SIGINT signal by setting the handler to the standard
+    # signal handler SIG_IGN.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+    apikeys = apikey_proxy_pairs_dict[available]['apikeys']
+    proxies = apikey_proxy_pairs_dict[available]['proxies']
+    logger.info("2 %s"%apikeys)
+    logger.info("3 %s"%proxies)
+    proxies = iter(proxies) if proxies else None
+    logger.info('REQUEST -> (city: [%s];)'%(search_config))
+
+    client_args = {"timeout": 60}
+
+    retry = True
+    try:
+        while(retry):
+            if proxies:
+                proxy = next(proxies)
+                passed, proxy = check_proxy_twython(proxy['proxy'], 5)
+                if not passed:
+                    logger.warn('proxy failed, retry next one')
+                    continue
+                else:
+                    logger.info('[%s] is alive' %proxy)
+                client_args['proxies'] = proxy['proxy_dict']
+
+            twitterCralwer = TwitterCrawler(apikeys=apikeys, client_args=client_args, output_folder = output_folder, oauth2 = False)
+            retry = twitterCralwer.fetch_geo(query = search_config, now = now)
+            logger.info("retry: %s"%(retry))
+    # except StopIteration as exc:
+    #     pass
+    except Exception as exc:
+        logger.error(exc)
+        pass
+
+    return available
+
+def collect_geo_info(cities_config_name = [], output_folder = None, config = None, n_workers = mp.cpu_count(), proxies = []):
+    logger.info("main runs in PID: [%s]"%os.getpid())
+    #Apikeys and proxy part
+    apikey_proxy_pairs_dict = apikey_proxy_pairs(config['apikeys'], proxies)
+    available_apikey_proxy_pairs = list(apikey_proxy_pairs_dict.keys())
+    max_workers = len(available_apikey_proxy_pairs)
+
+    citynames = cities_config_name
+
+    logger.info("fetching [%d] cities"%(len(citynames)))
+
+    max_workers = max_workers if max_workers < len(citynames) else len(citynames)
+    max_workers = n_workers if n_workers < max_workers else max_workers
+    logger.info("concurrent workers: [%d]"%(max_workers))
+
+    futures_ = []
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers = max_workers) as executor:
+
+        try:
+            for city in citynames:
+
+                while(len(available_apikey_proxy_pairs) == 0):
+                    logger.info('no available_apikey_proxy_pairs, wait for %ds to retry...'%WAIT_TIME)
+                    time.sleep(WAIT_TIME)
+
+                now = datetime.datetime.now()
+
+                logger.info("1 %s" %available_apikey_proxy_pairs)
+
+                future_ = executor.submit(search_by_city_worker, city, now, output_folder, available_apikey_proxy_pairs.pop(), apikey_proxy_pairs_dict)
+
+                future_.add_done_callback(functools.partial(search_by_city_worker_done, output_folder=output_folder, now = now, search_configs_filename = 'city_name.json', available_apikey_proxy_pairs=available_apikey_proxy_pairs))
+#def search_by_city_worker_done(future, output_folder=None, now = None, search_config_id = None, search_configs = None, search_configs_filename = None, available_apikey_proxy_pairs = []):
+
+                futures_.append(future_)
+            else:
+                concurrent.futures.wait(futures_)
+                executor.shutdown()
+                return False
+
+        except KeyboardInterrupt:
+            logger.warn('You pressed Ctrl+C! But we will wait until all sub processes are finished...')
+            concurrent.futures.wait(futures_)
+            executor.shutdown()
+            raise
+
+def collect_geo (input_filename, output_folder, config, n_workers = mp.cpu_count(), proxies = []):
+    if (input_filename.endswith('.csv')):
+        pima = pd.read_csv(input_filename)
+        pima.describe()
+        citynames = pima['County'].tolist()
+    elif (input_filename.endswith('.json')):
+        with open(os.path.abspath(input_filename), 'r') as citynames_rf:
+            citynames = set(json.load(citynames_rf))
+
+    if (len(citynames) > 0):
+        return collect_geo_info(cities_config_name = citynames, config = config, output_folder = output_folder, n_workers = n_workers, proxies = proxies)
 
     # with open(os.path.abspath(search_configs_filename), 'w') as search_configs_wf:
     #     json.dump(search_configs, search_configs_wf)
@@ -1024,6 +1167,8 @@ if __name__=="__main__":
                         retry = collect_user_relatinoships_by_user_ids(args.command, args.command_config, args.output, config, args.workers, proxies)
                     elif (args.command == '/statuses/retweets/:id'):
                         retry = collect_retweets(args.command_config, args.output, config, args.workers, proxies, args.level)
+                    elif (args.command == 'getgeo'):
+                        retry = collect_geo(args.command_config, args.output, config, args.workers, proxies)
                 except KeyboardInterrupt:
                     retry = False
                     raise
