@@ -84,9 +84,12 @@ def process_us_counties(geoJSON_file):
         locations = []
         cnt = 0
         
+        florida = []
         for county in us['features']:
-            logger.info(county)
-            quit()
+            if (county['properties']['STATE'] == '12'):
+                florida.append(county)
+
+        logger.info(len(florida))
 
 if __name__=="__main__":
 
