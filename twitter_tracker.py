@@ -310,8 +310,15 @@ class TwitterCrawler(twython.Twython):
             raise Exception("search: query cannot be None")
 
         #logger.info("query: %s; since_id: %d"%(query, since_id))
+        place = None
+        geo = None
 
-        day_output_folder = os.path.abspath('%s/%s'%(self.output_folder, now.strftime('%Y%m%d')))
+        if (geocode):
+            place, geo = geocode
+
+            day_output_folder = os.path.abspath('%s/%s/%s'%(self.output_folder, now.strftime('%Y%m%d'), place))
+        else:
+            day_output_folder = os.path.abspath('%s/%s'%(self.output_folder, now.strftime('%Y%m%d')))
 
         if not os.path.exists(day_output_folder):
             os.makedirs(day_output_folder)
@@ -329,9 +336,9 @@ class TwitterCrawler(twython.Twython):
         while current_max_id != prev_max_id and retry_cnt > 0:
             try:
                 if current_max_id > 0:
-                    tweets = self.search(q=query, geocode=geocode, since_id=since_id, lang=lang, max_id=current_max_id-1, result_type='recent', count=100)
+                    tweets = self.search(q=query, geocode=geo, since_id=since_id, lang=lang, max_id=current_max_id-1, result_type='recent', count=100)
                 else:
-                    tweets = self.search(q=query, geocode=geocode, since_id=since_id, lang=lang, result_type='recent', count=100)
+                    tweets = self.search(q=query, geocode=geo, since_id=since_id, lang=lang, result_type='recent', count=100)
 
 
                 prev_max_id = current_max_id # if no new tweets are found, the prev_max_id will be the same as current_max_id
@@ -860,7 +867,7 @@ def search_by_terms_worker(search_config, now, output_folder, available, apikey_
     querystring = '%s'%(' OR '.join('(' + term + ')' for term in search_terms))
     output_filename = search_config['output_filename'] if 'output_filename' in search_config else md5(querystring.encode('utf-8'))
     since_id = search_config['since_id'] if 'since_id' in search_config else 0
-    geocode = search_config['geocode'] if 'geocode' in search_config else None
+    geocode = tuple(search_config['geocode']) if 'geocode' in search_config else None
 
     logger.info('REQUEST -> (output_filename: [%s]; since_id: [%d]; geocode: [%s])'%(output_filename, since_id, geocode))
 
