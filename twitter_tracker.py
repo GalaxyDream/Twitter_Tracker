@@ -867,7 +867,7 @@ def search_by_terms_worker(search_config, now, output_folder, available, apikey_
     querystring = '%s'%(' OR '.join('(' + term + ')' for term in search_terms))
     output_filename = search_config['output_filename'] if 'output_filename' in search_config else md5(querystring.encode('utf-8'))
     since_id = search_config['since_id'] if 'since_id' in search_config else 0
-    geocode = tuple(search_config['geocode']) if 'geocode' in search_config else None
+    geocode = tuple(search_config['geocode']) if ('geocode' in search_config and search_config['geocode']) else None
 
     logger.info('REQUEST -> (output_filename: [%s]; since_id: [%d]; geocode: [%s])'%(output_filename, since_id, geocode))
 
