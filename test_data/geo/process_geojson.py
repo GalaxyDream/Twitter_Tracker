@@ -43,11 +43,13 @@ def to_bbox_polygon(bounding_box):
 
     return polygon
 
-MAX = 25
+MAX = 18
 def process_us_states(geoJSON_file):
     with open(geoJSON_file) as gf:
+
         us = json.load(gf)
         logger.info(len(us['features']))
+        
         name = []
         locations = []
         cnt = 0
@@ -152,12 +154,12 @@ if __name__=="__main__":
 
     logger.info(sys.version)
 
-    #process_us_states('gz_2010_us_040_00_20m.json')
+    process_us_states('gz_2010_us_040_00_20m.json')
     #process_us_counties('gz_2010_us_050_00_20m.json')
 
     # California 06
     # Texas 48
     # New Mexico 35
     # Arizona 04
-    find_county_by_name('Cochise', '04', 'gz_2010_us_050_00_20m.json')
+    #find_county_by_name('Cochise', '04', 'gz_2010_us_050_00_20m.json')
 
