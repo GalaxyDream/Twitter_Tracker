@@ -442,10 +442,11 @@ class TwitterCrawler(twython.Twython):
 
 
             for tweet in tweets:
+                logger.info(tweet['id'])
                 filename = os.path.abspath('%s/%s'%(day_output_folder, tweet['id']))
+
                 with open(filename, 'a+') as f:
-                    for tweet in tweets:
-                        f.write('%s\n'%json.dumps(tweet))
+                    f.write('%s\n'%json.dumps(tweet))
 
             cnt += len(tweets)
             time.sleep(5)
