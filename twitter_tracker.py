@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+    #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import logging
@@ -90,7 +90,7 @@ class TwitterCrawler(twython.Twython):
                 return False
 
             except twython.exceptions.TwythonRateLimitError:
-                self.rate_limit_error_occured('statuses', '/statuses/update')
+                self.rate_limit_error_occured('geo', '/geo/search')
             except Exception as exc:
                 time.sleep(10)
                 logger.error("exception: %s; when fetching city: %d"%(exc, query))
@@ -132,7 +132,7 @@ class TwitterCrawler(twython.Twython):
         else:
             filename = os.path.abspath('%s/%s'%(self.output_folder, filename))
 
-        retry_cnt = MAX_RETRY_CNT
+        retry_cnt = 0
         while retry_cnt > 0:
             try:
 
@@ -258,14 +258,14 @@ class TwitterCrawler(twython.Twython):
                 logger.info("find %d retweets of [%d]"%(len(result), tweet_id))
                 for tweet in result:
                     retweet_ids.add(tweet['id'])
-                
+
                 if(len(result) > 0):
                     with open(filename, 'a+') as f:
 
                         f.write('%s\n'%json.dumps(result))
 
                 time.sleep(1)
-                
+
                 return False, retweet_ids
 
             except twython.exceptions.TwythonRateLimitError:
@@ -414,6 +414,50 @@ class TwitterCrawler(twython.Twython):
 
         logger.info("[%s]; since_id: [%d]; total tweets: %d "%(query, since_id, cnt))
         return current_since_id, False
+
+    def match_year(self, time_string = ''):
+
+        match = re.findall('\d{4}', time_string)
+        year = match[1] if match else 'Date'
+        return year
+
+    def lookup_history(self, tweets_id = None,  now=datetime.datetime.now()):
+
+
+        if not tweets_id:
+            raise Exception("tweets_history: tweets_id cannot be None")
+
+        cnt = 0
+
+
+        try:
+            tweets = self.lookup_status(id=tweets_id)
+            tweet_time = tweets[0]["created_at"]
+            year = self.match_year(tweet_time)
+
+            day_output_folder = os.path.abspath('%s/%s/%s'%(self.output_folder, now.strftime('%Y%m%d'), year))
+
+            if not os.path.exists(day_output_folder):
+                os.makedirs(day_output_folder)
+
+
+            for tweet in tweets:
+                filename = os.path.abspath('%s/%s'%(day_output_folder, tweet['id']))
+                with open(filename, 'a+') as f:
+                    for tweet in tweets:
+                        f.write('%s\n'%json.dumps(tweet))
+
+            cnt += len(tweets)
+            time.sleep(5)
+
+        except twython.exceptions.TwythonRateLimitError:
+            self.rate_limit_error_occured('search', '/search/tweets')
+        except Exception as exc:
+            time.sleep(10)
+            logger.error("exception: %s; when fetching tweet_id: %d"%(exc, tweets_id[0]))
+
+        logger.info("total tweets: %d; since_id: [%d]"%(cnt, tweets_id[0]))
+        return False
 
 def generate_apikey_proxy_pair(apikeys_list, proxies_list):
 
@@ -1102,19 +1146,123 @@ def collect_geo_info(cities_config_name = [], output_folder = None, config = Non
             raise
 
 def collect_geo (input_filename, output_folder, config, n_workers = mp.cpu_count(), proxies = []):
-    if (input_filename.endswith('.csv')):
-        pima = pd.read_csv(input_filename)
-        pima.describe()
-        citynames = pima['County'].tolist()
-    elif (input_filename.endswith('.json')):
-        with open(os.path.abspath(input_filename), 'r') as citynames_rf:
-            citynames = set(json.load(citynames_rf))
+    geolist = ["Coahuila Ocampo", "Coahuila Acuña", "Coahuila Piedras", "Coahuila Guerrero", "Coahuila Hidalgo", "Nuevo León Anáhuac", "Tamaulipas Nuevo Laredo", "Tamaulipas Guerrero", "Tamaulipas Mier", "Tamaulipas Miguel Alemán", "Tamaulipas Gustavo Díaz Ordaz", "Tamaulipas Reynosa", "Tamaulipas Río Bravo", "Tamaulipas Matamoros", "Texas El Paso", "Texas Hudspeth", "Texas Jeff Davis", "Texas Presidio County", "Texas Brewster County", "Texas Terrell County", "Texas Val Verde County", "Texas Kinney County", "Texas Maverick County", "Texas Webb County", "Texas Zapata County", "Texas Starr County", "Texas Hidalgo County", "Texas Cameron County", "California San Diego", "California Imperial", "Chihuahua Janos", "Chihuahua Ascensión", "Chihuahua Juárez", "Chihuahua Guadalupe", "Chihuahua Práxedis G. Guerrero", "Chihuahua Guadalupe", "Chihuahua Ojinaga", "Chihuahua Manuel Benavides", "Arizona Yuma", "Arizona Pima", "Arizona Santa Cruz", "Arizona Cochise", "New Mexico Hidalgo", "New Mexico Luna", "New Mexico Doña Ana", "Bajia California Tijuana", "Bajia California Tecate", "Bajia California Mxicali", "Sonora San Luis Río Colorado", "Sonora Puerto Peñasco", "Sonora Plutarco Elías Calles", "Sonora Caborca", "Sonora Altar", "Sonora Sáric", "Sonora Nogales", "Sonora Santa Cruz", "Sonora Cananea", "Sonora Naco", "Sonora Agua Prieta"]
+    # if (input_filename.endswith('.csv')):
+    #     pima = pd.read_csv(input_filename)
+    #     pima.describe()
+    #     citynames = pima['County'].tolist()
+    # elif (input_filename.endswith('.json')):
+    #     with open(os.path.abspath(input_filename), 'r') as citynames_rf:
+    #         citynames = set(json.load(citynames_rf))
+    #         print(citynames['geoname'])
+    #         quit()
 
-    if (len(citynames) > 0):
-        return collect_geo_info(cities_config_name = citynames, config = config, output_folder = output_folder, n_workers = n_workers, proxies = proxies)
+    # if (len(citynames) > 0):
+    return collect_geo_info(cities_config_name = geolist, config = config, output_folder = output_folder, n_workers = n_workers, proxies = proxies)
 
     # with open(os.path.abspath(search_configs_filename), 'w') as search_configs_wf:
     #     json.dump(search_configs, search_configs_wf)
+
+def fetch_history_done(future, now=None, tweets_config_filename=None, output_folder = None, tweets_config = None, available_apikey_proxy_pairs = []):
+
+    available, tweet_config = future.result()
+
+    tweets_config = tweet_config
+
+    with open(os.path.abspath(tweets_config_filename), 'w') as tweets_config_wf:
+            json.dump(tweets_config, tweets_config_wf)
+
+    logger.info('finished... [%s]'%available)
+    available_apikey_proxy_pairs.append(available)
+
+def create_list(start = 0, end = 3061014649, endpoint = 0):
+
+    if start + 100 > end:
+        return list(range(start, end + 1)), end
+    else:
+        return list(range(start, start+100)), start + 100
+
+def fetch_history_worker(tweets_id, now, end_point, output_folder, tweet_config, available, apikey_proxy_pairs_dict):
+
+    # Ignore the SIGINT signal by setting the handler to the standard
+    # signal handler SIG_IGN.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+    apikeys = copy.copy(apikey_proxy_pairs_dict[available]['apikeys'])
+    proxies = copy.copy(apikey_proxy_pairs_dict[available]['proxies'])
+
+    proxies = iter(proxies) if proxies else None
+
+    client_args = {"timeout": 30}
+
+    retry = True
+    try:
+        while(retry):
+
+            if proxies:
+                proxy = next(proxies)
+                passed, proxy = check_proxy_twython(proxy['proxy'], 5)
+                if not passed:
+                    logger.warn('proxy failed, retry next one')
+                    continue
+                else:
+                    logger.info('[%s] is alive' %proxy)
+                client_args['proxies'] = proxy['proxy_dict']
+            twitterCralwer = TwitterCrawler(apikeys=apikeys, client_args=client_args, output_folder = output_folder)
+            retry = twitterCralwer.lookup_history(tweets_id, now=now)
+
+    # except StopIteration as exc:
+    #     pass
+    except Exception as exc:
+        logger.error(exc)
+        pass
+
+    tweet_config["tweet_id"] = end_point
+
+    return available, tweet_config
+
+def collect_tweets_history(tweets_config_filename, output_folder, config, n_workers = mp.cpu_count(), proxies = []):
+
+    apikey_proxy_pairs_dict = apikey_proxy_pairs(config['apikeys'], proxies)
+
+    available_apikey_proxy_pairs = list(apikey_proxy_pairs_dict.keys())
+
+    max_workers = len(available_apikey_proxy_pairs)
+
+    #max_workers = mp.cpu_count() if max_workers > mp.cpu_count() else max_workers
+
+    tweets_config = {}
+    with open(os.path.abspath(tweets_config_filename), 'r') as tweets_config_rf:
+        tweets_config = json.load(tweets_config_rf)
+
+    max_workers = max_workers if max_workers < len(tweets_config) else len(tweets_config)
+    max_workers = n_workers if n_workers < max_workers else max_workers
+    logger.info("concurrent workers: [%d]"%(max_workers))
+
+    futures_ = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        try:
+            end_point = tweets_config['tweet_id']
+            logger.info(type(tweets_config))
+            while(end_point <= 3061014649):
+
+                tweets_id, end_point = create_list(start = end_point)
+                while(len(available_apikey_proxy_pairs) == 0):
+                    logger.info('no available_apikey_proxy_pairs, wait for %ds to retry...'%WAIT_TIME)
+                    time.sleep(WAIT_TIME)
+
+                now = datetime.datetime.now()
+                future_ = executor.submit(
+                            fetch_history_worker, tweets_id, now, end_point, output_folder, tweets_config, available_apikey_proxy_pairs.pop(), apikey_proxy_pairs_dict)
+
+                future_.add_done_callback(functools.partial(fetch_history_done, now=now, output_folder=output_folder, tweets_config_filename = tweets_config_filename, tweets_config = tweets_config, available_apikey_proxy_pairs=available_apikey_proxy_pairs))
+
+                futures_.append(future_)
+        except KeyboardInterrupt:
+            logger.warn('You pressed Ctrl+C! But we will wait until all sub processes are finished...')
+            concurrent.futures.wait(futures_)
+            executor.shutdown()
+            raise
 
 
 if __name__=="__main__":
@@ -1169,6 +1317,8 @@ if __name__=="__main__":
                         retry = collect_retweets(args.command_config, args.output, config, args.workers, proxies, args.level)
                     elif (args.command == 'getgeo'):
                         retry = collect_geo(args.command_config, args.output, config, args.workers, proxies)
+                    elif (args.command == 'history'):
+                        retry = collect_tweets_history(args.command_config, args.output, config, args.workers, proxies)
                 except KeyboardInterrupt:
                     retry = False
                     raise
