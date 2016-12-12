@@ -442,7 +442,7 @@ class TwitterCrawler(twython.Twython):
 
 
             for tweet in tweets:
-                logger.info(tweet['id'])
+                # logger.info(tweet['id'])
                 filename = os.path.abspath('%s/%s'%(day_output_folder, tweet['id']))
 
                 with open(filename, 'a+') as f:
@@ -1244,7 +1244,7 @@ def collect_tweets_history(tweets_config_filename, output_folder, config, n_work
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         try:
             end_point = tweets_config['tweet_id']
-            logger.info(type(tweets_config))
+            # logger.info(type(tweets_config))
             while(end_point <= 3061014649):
 
                 tweets_id, end_point = create_list(start = end_point)
