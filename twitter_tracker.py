@@ -402,7 +402,7 @@ class TwitterCrawler(twython.Twython):
                 time.sleep(1)
 
             except twython.exceptions.TwythonRateLimitError:
-                self.rate_limit_error_occured('search', '/search/tweets')
+                self.rate_limit_error_occured('statuses', '/statuses/lookup.json')
             except Exception as exc:
                 time.sleep(10)
                 logger.error("exception: %s"%exc)
@@ -415,13 +415,15 @@ class TwitterCrawler(twython.Twython):
         logger.info("[%s]; since_id: [%d]; total tweets: %d "%(query, since_id, cnt))
         return current_since_id, False
 
-    def match_year(self, time_string = ''):
+    def match_year_month(self, time_string = ''):
 
-        match = re.findall('\d{4}', time_string)
-        year = match[1] if match else 'Date'
-        return year
+        match_year = re.findall('\d{4}', time_string)
+        match_month = re.findall('[a-zA-Z]+', time_string)
+        month = match_month[1] if match_month else 'Date'
+        year = match_year[1] if match_year else 'Date'
+        return year, month
 
-    def lookup_history(self, tweets_id = None,  now=datetime.datetime.now()):
+    def lookup_tweets_by_ids(self, tweets_id = None,  now=datetime.datetime.now()):
 
 
         if not tweets_id:
@@ -429,11 +431,10 @@ class TwitterCrawler(twython.Twython):
 
         cnt = 0
 
-
         try:
-            tweets = self.lookup_status(id=tweets_id)
+            tweets = self.lookup_status(id=list(tweets_id))
             tweet_time = tweets[0]["created_at"]
-            year = self.match_year(tweet_time)
+            year, month = self.match_year_month(tweet_time)
 
             day_output_folder = os.path.abspath('%s/%s/%s'%(self.output_folder, now.strftime('%Y%m%d'), year))
 
@@ -442,8 +443,8 @@ class TwitterCrawler(twython.Twython):
 
 
             for tweet in tweets:
-                # logger.info(tweet['id'])
-                filename = os.path.abspath('%s/%s'%(day_output_folder, tweet['id']))
+
+                filename = os.path.abspath('%s/%s'%(day_output_folder, year + month))
 
                 with open(filename, 'a+') as f:
                     f.write('%s\n'%json.dumps(tweet))
@@ -1164,9 +1165,11 @@ def collect_geo (input_filename, output_folder, config, n_workers = mp.cpu_count
     # with open(os.path.abspath(search_configs_filename), 'w') as search_configs_wf:
     #     json.dump(search_configs, search_configs_wf)
 
-def fetch_history_done(future, now=None, tweets_config_filename=None, output_folder = None, tweets_config = None, available_apikey_proxy_pairs = []):
+def fetch_tweets_by_ids_done(future, now=None, tweets_config_filename=None, output_folder = None, tweets_config = None, available_apikey_proxy_pairs = []):
 
     available, tweet_config = future.result()
+
+    logger.info(tweet_config)
 
     tweets_config = tweet_config
 
@@ -1176,14 +1179,8 @@ def fetch_history_done(future, now=None, tweets_config_filename=None, output_fol
     logger.info('finished... [%s]'%available)
     available_apikey_proxy_pairs.append(available)
 
-def create_list(start = 0, end = 3061014649, endpoint = 0):
 
-    if start + 100 > end:
-        return list(range(start, end + 1)), end
-    else:
-        return list(range(start, start+100)), start + 100
-
-def fetch_history_worker(tweets_id, now, end_point, output_folder, tweet_config, available, apikey_proxy_pairs_dict):
+def fetch_tweets_by_ids_worker(tweets_id, now, current_point, output_folder, tweet_config, available, apikey_proxy_pairs_dict):
 
     # Ignore the SIGINT signal by setting the handler to the standard
     # signal handler SIG_IGN.
@@ -1210,7 +1207,7 @@ def fetch_history_worker(tweets_id, now, end_point, output_folder, tweet_config,
                     logger.info('[%s] is alive' %proxy)
                 client_args['proxies'] = proxy['proxy_dict']
             twitterCralwer = TwitterCrawler(apikeys=apikeys, client_args=client_args, output_folder = output_folder)
-            retry = twitterCralwer.lookup_history(tweets_id, now=now)
+            retry = twitterCralwer.lookup_tweets_by_ids(tweets_id, now=now)
 
     # except StopIteration as exc:
     #     pass
@@ -1218,17 +1215,23 @@ def fetch_history_worker(tweets_id, now, end_point, output_folder, tweet_config,
         logger.error(exc)
         pass
 
-    tweet_config["tweet_id"] = end_point
+    tweet_config["current_id"] = current_point
 
     return available, tweet_config
 
-def collect_tweets_history(tweets_config_filename, output_folder, config, n_workers = mp.cpu_count(), proxies = []):
+def chunks(l, n):
+    """ Yield successive n-sized chunks from l """
+    for i in range(0, len(l), n):
+        yield l[i : i + n]
+
+def collect_tweets_by_ids(tweets_config_filename, output_folder, config, n_workers = mp.cpu_count(), proxies = []):
 
     apikey_proxy_pairs_dict = apikey_proxy_pairs(config['apikeys'], proxies)
 
     available_apikey_proxy_pairs = list(apikey_proxy_pairs_dict.keys())
 
     max_workers = len(available_apikey_proxy_pairs)
+    #logger.info(max_workers)
 
     #max_workers = mp.cpu_count() if max_workers > mp.cpu_count() else max_workers
 
@@ -1243,25 +1246,38 @@ def collect_tweets_history(tweets_config_filename, output_folder, config, n_work
     futures_ = []
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         try:
-            end_point = tweets_config['tweet_id']
-            # logger.info(type(tweets_config))
-            while(end_point <= 3061014649):
+            next_point = tweets_config['current_id']
+            start_point = tweets_config['current_id']
 
-                tweets_id, end_point = create_list(start = end_point)
-                while(len(available_apikey_proxy_pairs) == 0):
-                    logger.info('no available_apikey_proxy_pairs, wait for %ds to retry...'%WAIT_TIME)
-                    time.sleep(WAIT_TIME)
+            while(next_point <= tweets_config['end']):
 
-                now = datetime.datetime.now()
-                future_ = executor.submit(
-                            fetch_history_worker, tweets_id, now, end_point, output_folder, tweets_config, available_apikey_proxy_pairs.pop(), apikey_proxy_pairs_dict)
+                next_point = next_point + max_workers * tweets_config['range']
+                tweet_ids = list(chunks(range(start_point, next_point), tweets_config['range']))
+                start_point = next_point
+                logger.info(tweet_ids)
+                for tweets_id in tweet_ids:
 
-                future_.add_done_callback(functools.partial(fetch_history_done, now=now, output_folder=output_folder, tweets_config_filename = tweets_config_filename, tweets_config = tweets_config, available_apikey_proxy_pairs=available_apikey_proxy_pairs))
+                    logger.info(tweets_id)
 
-                futures_.append(future_)
+                    while(len(available_apikey_proxy_pairs) == 0):
+                        logger.info('no available_apikey_proxy_pairs, wait for %ds to retry...'%WAIT_TIME)
+                        time.sleep(WAIT_TIME)
+
+                    now = datetime.datetime.now()
+                    future_ = executor.submit(
+                                fetch_tweets_by_ids_worker, tweets_id, now, next_point, output_folder, tweets_config, available_apikey_proxy_pairs.pop(), apikey_proxy_pairs_dict)
+
+                    # future_.add_done_callback(functools.partial(fetch_tweets_by_ids_done, now=now, output_folder=output_folder, tweets_config_filename = tweets_config_filename, tweets_config = tweets_config, available_apikey_proxy_pairs=available_apikey_proxy_pairs))
+
+                    futures_.append(future_)
+
+                concurrent.futures.wait(futures_)
+                fetch_tweets_by_ids_done(future = futures_[0], now = now, output_folder=output_folder, tweets_config_filename = tweets_config_filename, tweets_config = tweets_config, available_apikey_proxy_pairs=available_apikey_proxy_pairs)
+                futures_[:] = []
+
         except KeyboardInterrupt:
             logger.warn('You pressed Ctrl+C! But we will wait until all sub processes are finished...')
-            concurrent.futures.wait(futures_)
+            # concurrent.futures.wait(futures_)
             executor.shutdown()
             raise
 
@@ -1319,7 +1335,7 @@ if __name__=="__main__":
                     elif (args.command == 'getgeo'):
                         retry = collect_geo(args.command_config, args.output, config, args.workers, proxies)
                     elif (args.command == 'history'):
-                        retry = collect_tweets_history(args.command_config, args.output, config, args.workers, proxies)
+                        retry = collect_tweets_by_ids(args.command_config, args.output, config, args.workers, proxies)
                 except KeyboardInterrupt:
                     retry = False
                     raise
