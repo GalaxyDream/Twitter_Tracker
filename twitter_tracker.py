@@ -1239,7 +1239,7 @@ def collect_tweets_by_ids(tweets_config_filename, output_folder, config, n_worke
     with open(os.path.abspath(tweets_config_filename), 'r') as tweets_config_rf:
         tweets_config = json.load(tweets_config_rf)
 
-    max_workers = max_workers if max_workers < len(tweets_config) else len(tweets_config)
+    max_workers = max_workers
     max_workers = n_workers if n_workers < max_workers else max_workers
     logger.info("concurrent workers: [%d]"%(max_workers))
 
