@@ -1165,16 +1165,9 @@ def collect_geo (input_filename, output_folder, config, n_workers = mp.cpu_count
     # with open(os.path.abspath(search_configs_filename), 'w') as search_configs_wf:
     #     json.dump(search_configs, search_configs_wf)
 
-def fetch_tweets_by_ids_done(future, now=None, tweets_config_filename=None, output_folder = None, tweets_config = None, available_apikey_proxy_pairs = []):
+def fetch_tweets_by_ids_done(future, now=None, available_apikey_proxy_pairs = []):
 
     available, tweet_config = future.result()
-
-    logger.info(tweet_config)
-
-    tweets_config = tweet_config
-
-    with open(os.path.abspath(tweets_config_filename), 'w') as tweets_config_wf:
-            json.dump(tweets_config, tweets_config_wf)
 
     logger.info('finished... [%s]'%available)
     available_apikey_proxy_pairs.append(available)
@@ -1242,18 +1235,18 @@ def collect_tweets_by_ids(tweets_config_filename, output_folder, config, n_worke
     max_workers = max_workers
     max_workers = n_workers if n_workers < max_workers else max_workers
     logger.info("concurrent workers: [%d]"%(max_workers))
+    # logger.info(max_workers)
 
     futures_ = []
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         try:
-            next_point = tweets_config['current_id']
-            start_point = tweets_config['current_id']
+            current_id = tweets_config['current_id']
 
-            while(next_point <= tweets_config['end']):
+            while(current_id <= tweets_config['end']):
 
-                next_point = next_point + max_workers * tweets_config['range']
-                tweet_ids = list(chunks(range(start_point, next_point), tweets_config['range']))
-                start_point = next_point
+                next_point = current_id + max_workers * tweets_config['range']
+                tweet_ids = list(chunks(range(current_id, next_point), tweets_config['range']))
+                current_id = next_point
                 logger.info(tweet_ids)
                 for tweets_id in tweet_ids:
 
@@ -1267,17 +1260,21 @@ def collect_tweets_by_ids(tweets_config_filename, output_folder, config, n_worke
                     future_ = executor.submit(
                                 fetch_tweets_by_ids_worker, tweets_id, now, next_point, output_folder, tweets_config, available_apikey_proxy_pairs.pop(), apikey_proxy_pairs_dict)
 
-                    # future_.add_done_callback(functools.partial(fetch_tweets_by_ids_done, now=now, output_folder=output_folder, tweets_config_filename = tweets_config_filename, tweets_config = tweets_config, available_apikey_proxy_pairs=available_apikey_proxy_pairs))
+                    future_.add_done_callback(functools.partial(fetch_tweets_by_ids_done, now=now, available_apikey_proxy_pairs=available_apikey_proxy_pairs))
 
                     futures_.append(future_)
 
                 concurrent.futures.wait(futures_)
-                fetch_tweets_by_ids_done(future = futures_[0], now = now, output_folder=output_folder, tweets_config_filename = tweets_config_filename, tweets_config = tweets_config, available_apikey_proxy_pairs=available_apikey_proxy_pairs)
-                futures_[:] = []
+                tweets_config['current_id'] = current_id
+
+                with open(os.path.abspath(tweets_config_filename), 'w') as tweets_config_wf:
+                    json.dump(tweets_config, tweets_config_wf)
+
+                futures_ = []
 
         except KeyboardInterrupt:
             logger.warn('You pressed Ctrl+C! But we will wait until all sub processes are finished...')
-            # concurrent.futures.wait(futures_)
+            concurrent.futures.wait(futures_)
             executor.shutdown()
             raise
 
