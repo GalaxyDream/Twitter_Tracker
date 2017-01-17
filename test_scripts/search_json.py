@@ -72,7 +72,29 @@ def generate_search_json(query_terms, geocodes, search_json_filename):
 
 if __name__=="__main__":
 
+<<<<<<< HEAD
     search_terms = ["hpv vaccine"]
+=======
+    # search_terms = ["hpv", "#hpv", "#hpvvaccine", "hpvvaccine", "HumanPapillomavirus", "#HumanPapillomavirus",
+    # "HumanPapillomavirusVaccine", "#HumanPapillomavirusVaccine",
+    # "Gardasil", "#Gardasil", "Papillomavirus", "#Papillomavirus", "Cervarix", "#cervarix"
+    # "cervical cancer", "cervical #cancer", "#cervical cancer", "cervicalcancer", "#cervicalcancer",
+    #     "vph",
+    #     "#vph",
+    #     "#vphvacuna",
+    #     "vphvacuna",
+    #     "viruspapilomahumano",
+    #     "#viruspapilomahumano",
+    #     "viruspapilomahumanovacuna",
+    #     "#viruspapilomahumanovacuna",
+    #     "viruspapiloma",
+    #     "#viruspapiloma",
+    #     "cancer cervical",
+    #     "cancer #cervical",
+    #     "cancercervical",
+    #     "#cancercervical"
+    # ]
+>>>>>>> origin/YP
 
     # search_terms = [
     #     "vph",
@@ -95,6 +117,7 @@ if __name__=="__main__":
     #     "cancercervical",
     #     "#cancercervical"
     # ]
+<<<<<<< HEAD
     # search_terms = [
     #   "lynch syndrome",
     #   "#lynchsyndrome",
@@ -104,6 +127,18 @@ if __name__=="__main__":
     query_terms = ['"%s"'%(term) for term in search_terms]
 
     geocodes = [None]
+=======
+    search_terms = [
+      "lynch syndrome",
+      "#lynchsyndrome",
+      "lynchsyndrome",
+      "#lynch_syndrome"
+    ]
+    query_terms = ['"%s"'%(term) for term in search_terms]
+
+    geocodes = None
+    # geocodes = [
+>>>>>>> origin/YP
     #     ("san_diego_ca","33.02187484500974,-116.84265566973069,55.24883155189012mi"),
     #     ("imperial_ca","33.02863311995613,-115.28832454648432,55.353165830561416mi"),
     #     ("el_paso_tx","31.69479577023928,-106.31377858272373,28.188316540742175mi"),
@@ -129,4 +164,8 @@ if __name__=="__main__":
     #     ("cochise_az","31.88187941076444,-109.75824543276532,56.08862590170022mi")
     # ]
 
+<<<<<<< HEAD
     generate_search_json(query_terms, geocodes, "vaccine.json")
+=======
+    generate_search_json(query_terms, geocodes, "lynchsyndrome_search.json")
+>>>>>>> origin/YP

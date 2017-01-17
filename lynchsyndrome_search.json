@@ -1,0 +1,14 @@
+{
+  "404e0e669502fd24a6dac7ab82a901e0": {
+    "output_filename": "404e0e669502fd24a6dac7ab82a901e0",
+    "querystring": " OR \"lynch syndrome\" OR \"#lynchsyndrome\" OR \"lynchsyndrome\" OR \"#lynch_syndrome\"",
+    "terms": [
+      "\"lynch syndrome\"",
+      "\"#lynchsyndrome\"",
+      "\"lynchsyndrome\"",
+      "\"#lynch_syndrome\""
+    ],
+    "since_id": 0,
+    "geocode": null
+  }
+}
