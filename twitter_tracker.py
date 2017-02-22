@@ -439,25 +439,15 @@ class TwitterCrawler(twython.Twython):
         cnt = 0
 
         try:
+
             tweets = self.lookup_status(id=list(tweets_id))
-            tweet_time = tweets[0]["created_at"]
-            year, month = self.match_year_month(tweet_time)
+            cnt = len(tweets)
+            if (cnt > 0):
+                for tweet in tweets:
+                    filename = os.path.abspath('%s/%s'%(self.output_folder, now.strftime('%Y%m%d')))
+                    with open(filename, 'a+') as f:
+                        f.write('%s\n'%json.dumps(tweet))
 
-            day_output_folder = os.path.abspath('%s/%s/%s'%(self.output_folder, now.strftime('%Y%m%d'), year))
-
-            if not os.path.exists(day_output_folder):
-                os.makedirs(day_output_folder)
-
-
-            for tweet in tweets:
-
-                filename = os.path.abspath('%s/%s'%(day_output_folder, year + month))
-
-                with open(filename, 'a+') as f:
-                    f.write('%s\n'%json.dumps(tweet))
-
-            cnt += len(tweets)
-            time.sleep(5)
 
         except twython.exceptions.TwythonRateLimitError:
             self.rate_limit_error_occured('search', '/search/tweets')
@@ -1244,7 +1234,7 @@ def collect_tweets_by_ids(tweets_config_filename, output_folder, config, n_worke
     max_workers = max_workers
     max_workers = n_workers if n_workers < max_workers else max_workers
     logger.info("concurrent workers: [%d]"%(max_workers))
-    # logger.info(max_workers)
+    # logger.info(max_workers)⁄
 
     futures_ = []
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
