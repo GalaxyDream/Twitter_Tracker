@@ -444,7 +444,7 @@ class TwitterCrawler(twython.Twython):
             cnt = len(tweets)
             if (cnt > 0):
                 for tweet in tweets:
-                    filename = os.path.abspath('%s/%s'%(self.output_folder, now.strftime('%Y%m%d')))
+                    filename = os.path.abspath('%s/%s.json'%(self.output_folder, now.strftime('%Y%m%d')))
                     with open(filename, 'a+') as f:
                         f.write('%s\n'%json.dumps(tweet))
 
