@@ -1246,10 +1246,10 @@ def collect_tweets_by_ids(tweets_config_filename, output_folder, config, n_worke
                 next_point = current_id + max_workers * tweets_config['range']
                 tweet_ids = list(chunks(range(current_id, next_point), tweets_config['range']))
                 current_id = next_point
-                logger.info(tweet_ids)
+                #logger.info(tweet_ids)
                 for tweets_id in tweet_ids:
 
-                    logger.info(tweets_id)
+                    #logger.info(tweets_id)
 
                     while(len(available_apikey_proxy_pairs) == 0):
                         logger.info('no available_apikey_proxy_pairs, wait for %ds to retry...'%WAIT_TIME)
